@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
@@ -63,5 +64,25 @@ func (msg *Msg) Decode(buf []byte) error {
 		msg.Data = ion
 	}
 	return err
+
+}
+
+func TlsConfig(crtpath, keypath string) *tls.Config {
+	cer, err := tls.LoadX509KeyPair(crtpath, keypath)
+	if err != nil {
+		fmt.Println("Failed to load certificates")
+		return nil
+	}
+
+	config := &tls.Config{Certificates: []tls.Certificate{cer}}
+	//config.Rand = rand.Reader
+	//config.MinVersion = tls.VersionTLS10
+	//config.SessionTicketsDisabled = false
+	//config.InsecureSkipVerify = false
+	//config.ClientAuth = tls.NoClientCert
+	//config.PreferServerCipherSuites = true
+	//config.ClientSessionCache = tls.NewLRUClientSessionCache(1000)
+
+	return config
 
 }

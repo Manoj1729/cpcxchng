@@ -3,61 +3,105 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
-	"net"
 	"os"
+	"sync"
 	"time"
 
 	cmn "github.com/ionosnetworks/cpcxchng/common"
 )
 
+type serv cmn.Server
+
+const (
+	CERT = "server.crt"
+	KEY  = "server.key"
+)
+
 func main() {
-	service := "127.0.0.1:7777"
-	cer, err := tls.LoadX509KeyPair("server.crt", "server.key")
+	server := Create()
+	err := server.Start()
 	if err != nil {
-		log.Println(err)
-		return
+		fmt.Println("Error starting server", err)
 	}
-	config := &tls.Config{
-		Certificates: []tls.Certificate{cer},
-		ClientAuth:   tls.NoClientCert,
+}
+
+func Create() *serv {
+
+	server := new(serv)
+	server.Clients = make(map[string]cmn.Client)
+	server.ClientLock = &sync.RWMutex{}
+	server.readParams()
+	return server
+}
+
+func (server serv) readParams() {
+
+	if ip := os.Getenv("IP_TO_USE"); ip != "" {
+		server.IP = ip
 	}
-	listener, err := tls.Listen("tcp", service, config) //net.ListenTCP("tcp", tcpAddr)
-	checkError(err)
-	defer listener.Close()
+
+	if port := os.Getenv("CPC_PORT"); port != "" {
+		server.Port = port
+	} else {
+		server.Port = "3000"
+	}
+
+	if etcdIP := os.Getenv("ETCD_IP"); etcdIP != "" {
+		server.EtcdIP = etcdIP
+	} else {
+		server.EtcdIP = ""
+	}
+
+	if servtype := os.Getenv("SERV_TYPE"); servtype != "" {
+		server.Type = servtype
+	} else {
+		server.Type = "tcp"
+	}
+
+}
+
+func (serv *serv) Start() error {
+	var servaddr string
+	if serv.IP != "" {
+		servaddr = serv.IP + ":" + serv.Port
+	} else {
+		servaddr = "127.0.0.1:7777" //":" + serv.Port
+	}
+
+	config := cmn.TlsConfig(CERT, KEY)
+	ln, err := tls.Listen("tcp", servaddr, config)
+	if err != nil {
+		// handle error
+		fmt.Println("Not able to listen on port", serv.Port)
+		os.Exit(1)
+	}
+
 	for {
-		conn, err := listener.Accept()
+		conn, err := ln.Accept()
 		if err != nil {
-			continue
+			// handle error
+			// TODO:: This is a serious error.
 		}
-		go handleClient(conn)
+		newconn := cmn.ClientConn{Conn: conn, Lock: &sync.Mutex{}}
+		go serv.handleClient(newconn)
 	}
 
+	return nil
 }
 
-func checkError(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
-		//os.Exit(1)
-	}
-}
-
-func handleClient(conn net.Conn) {
-	//conn.SetReadDeadline(time.Now().Add(2 * time.Minute)) // set 2 minutes timeout
-	defer conn.Close() // close connection before exit
-	//_, ok := conn.(*tls.Conn)
+func (server *serv) handleClient(conn cmn.ClientConn) {
+	conn.Conn.SetReadDeadline(time.Now().Add(1 * time.Minute))
+	defer conn.Conn.Close()
 	request := make([]byte, 1024) // set maximum request length to 128B to prevent flood based attacks
-	//if ok {
-	//	for {
-	_, err := conn.Read(request)
-	checkError(err)
+	_, err := conn.Conn.Read(request)
+	if err != nil {
+		fmt.Println("conn read error", err)
+	}
 	msg := new(cmn.Msg)
 	err = msg.Decode(request)
 	if err != nil {
-		//fmt.Println("msg decode error", err)
-		//break
+		fmt.Println("msg decode error", err)
 	}
-	fmt.Println("read request", msg.Header)
 	switch msg.Header {
 	case cmn.CAPACITY_REQ:
 		inf := msg.Data
@@ -71,12 +115,9 @@ func handleClient(conn net.Conn) {
 		if err != nil {
 			fmt.Println("Error encoding ion data")
 		}
-		//daytime := strconv.FormatInt(time.Now().Unix(), 10)
-		conn.Write(respdata)
+		conn.Conn.Write(respdata)
 	}
-	time.Sleep(5 * time.Second)
-	//}
-	//}
+
 }
 
 func findIonForCapacity(cap cmn.Capacity) (cmn.Ion, error) {
