@@ -8,6 +8,7 @@ import (
 	"time"
 
 	cmn "github.com/ionosnetworks/cpcxchng/common"
+	etcd "github.com/ionosnetworks/cpcxchng/etcd"
 )
 
 type serv cmn.Server
@@ -48,6 +49,7 @@ func (server serv) readParams() {
 
 	if etcdIP := os.Getenv("ETCD_IP"); etcdIP != "" {
 		server.EtcdIP = etcdIP
+		etcd.SetEtcdAddress(server.EtcdIP)
 	} else {
 		server.EtcdIP = ""
 	}
@@ -121,6 +123,6 @@ func (server *serv) handleClient(conn cmn.ClientConn) {
 }
 
 func findIonForCapacity(cap cmn.Capacity) (cmn.Ion, error) {
-	ion := cmn.Ion{IP: "192.168.1.164", Port: "3030", Capacity: 30, SyncID: 1, ID: 1}
-	return ion, nil
+	ion := etcd.GetIonForCapacity(cap.Cap) //cmn.Ion{IP: "192.168.1.164", Port: "3030", Capacity: 30, SyncID: 1, ID: 1}
+	return *ion, nil
 }

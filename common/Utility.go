@@ -86,3 +86,26 @@ func TlsConfig(crtpath, keypath string) *tls.Config {
 	return config
 
 }
+
+// ConvertObjectToByteArray convert object to byte array
+func ConvertObjectToByteArray(object interface{}) ([]byte, error) {
+	var myDataBuff bytes.Buffer
+	newEncoder := gob.NewEncoder(&myDataBuff)
+	encodeErr := newEncoder.Encode(object)
+
+	if encodeErr != nil {
+		fmt.Println("Error encoding object", object, encodeErr.Error())
+		return nil, encodeErr
+	}
+
+	return myDataBuff.Bytes(), nil
+}
+
+//ConvertByteArrayToObject convert byte array to generic interface
+func ConvertByteArrayToObject(byteArray []byte, object interface{}) {
+	newDecoder := gob.NewDecoder(bytes.NewBuffer(byteArray))
+	decodeErr := newDecoder.Decode(object)
+	if decodeErr != nil {
+		fmt.Println("error decoding object", object, decodeErr.Error())
+	}
+}
