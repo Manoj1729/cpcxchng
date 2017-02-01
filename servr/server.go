@@ -14,8 +14,8 @@ import (
 type serv cmn.Server
 
 const (
-	CERT = "server.crt"
-	KEY  = "server.key"
+	CERT = "/Users/manojg/Documents/GoWorkSpace/src/github.com/ionosnetworks/cpcxchng/server/server.crt"
+	KEY  = "/Users/manojg/Documents/GoWorkSpace/src/github.com/ionosnetworks/cpcxchng/server/server.key"
 )
 
 func main() {
@@ -67,14 +67,14 @@ func (serv *serv) Start() error {
 	if serv.IP != "" {
 		servaddr = serv.IP + ":" + serv.Port
 	} else {
-		servaddr = "127.0.0.1:7777" //":" + serv.Port
+		servaddr = "127.0.0.1:3000" //":" + serv.Port
 	}
 
 	config := cmn.TlsConfig(CERT, KEY)
 	ln, err := tls.Listen("tcp", servaddr, config)
 	if err != nil {
 		// handle error
-		fmt.Println("Not able to listen on port", serv.Port)
+		fmt.Println("Not able to listen on port", servaddr, CERT, KEY)
 		os.Exit(1)
 	}
 
